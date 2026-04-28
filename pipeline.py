@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from pymongo import UpdateOne
@@ -158,6 +158,28 @@ class ScraperPipeline:
         """Optional hook for secondary collection writes after the primary bulk_write."""
         pass
 
+    # ── Checkpoint helpers ──────────────────────────────────────────────────
+
+    def _load_checkpoint(self) -> int:
+        """Return the last completed batch start-index for today, or -1."""
+        col = self.conn.get_collection("scrape_checkpoints")
+        doc = col.find_one({"scraper_name": self.scraper_name, "run_date": self._run_date})
+        return doc["last_batch_idx"] if doc else -1
+
+    def _save_checkpoint(self, batch_idx: int) -> None:
+        """Record that the batch starting at batch_idx has completed."""
+        col = self.conn.get_collection("scrape_checkpoints")
+        col.update_one(
+            {"scraper_name": self.scraper_name, "run_date": self._run_date},
+            {"$set": {"last_batch_idx": batch_idx}},
+            upsert=True,
+        )
+
+    def _clear_checkpoint(self) -> None:
+        """Remove the checkpoint document after a successful run."""
+        col = self.conn.get_collection("scrape_checkpoints")
+        col.delete_one({"scraper_name": self.scraper_name, "run_date": self._run_date})
+
     # ── Main loop ───────────────────────────────────────────────────────────
 
     def run(self):
@@ -165,8 +187,14 @@ class ScraperPipeline:
         n = len(combinations)
         num_batches = math.ceil(n / self.batch_size)
 
+        self._run_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        resume_after = self._load_checkpoint()
+
         for i in tqdm(range(0, n, self.batch_size),
                       total=num_batches, desc=self.scraper_name):
+            if i <= resume_after:
+                continue
+
             self.set_batch(combinations[i : i + self.batch_size])
             self.load_state()
 
@@ -177,3 +205,7 @@ class ScraperPipeline:
                     self.movies_col.bulk_write(ops, ordered=False)
                 self.post_write(results)
                 self.update_state(results)
+
+            self._save_checkpoint(i)
+
+        self._clear_checkpoint()
