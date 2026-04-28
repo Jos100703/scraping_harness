@@ -37,7 +37,7 @@ class CastMember(BaseModel):
     category: Optional[str | list[str]] = None        # actor, director, etc.
     attributes: Optional[list[str]] = None            # uncredited, voice, etc.
     episode_credits: Optional[int] = None
-    position_ordered: Optional[int] = None
+    position_ordered: Optional[str | int] = None
     profile_image_url: Optional[str] = None
     profile_image_path: Optional[str] = None          # local downloaded file
 
