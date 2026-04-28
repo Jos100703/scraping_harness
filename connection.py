@@ -39,17 +39,19 @@ class MongoConnection:
         movies.create_index("source_entries.internal_id")
         movies.create_index([("_meta.status", 1)])
 
-    def export_to_json(self, imdb_ids: set[str], output_dir: str = ".", collection_name: str = "movies") -> int:
+    @classmethod
+    def export_to_json(cls, imdb_ids: list[str], output_dir: str = ".", collection_name: str = "movies") -> int:
         """Fetch movies by IMDb ID and write each to <output_dir>/<imdb_id>_<title>.json.
 
         Returns the number of files written.
         """
         from .models import Movie
 
+        connection = cls()
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
 
-        collection = self.get_collection(collection_name)
+        collection = connection.get_collection(collection_name)
         docs = collection.find({"imdb_id": {"$in": list(imdb_ids)}})
 
         exported = 0
