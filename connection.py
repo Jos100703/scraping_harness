@@ -39,6 +39,11 @@ class MongoConnection:
         movies.create_index("source_entries.internal_id")
         movies.create_index([("_meta.status", 1)])
 
+        uso = self.get_collection("unique_streaming_offers")
+        uso.create_index([("service", 1), ("internal_id", 1)], unique=True)
+        uso.create_index("imdb_id", sparse=True)
+        uso.create_index("_meta.status.imdb_matching", sparse=True)
+
     @classmethod
     def export_to_json(cls, imdb_ids: list[str], output_dir: str = ".", collection_name: str = "movies") -> int:
         """Fetch movies by IMDb ID and write each to <output_dir>/<imdb_id>_<title>.json.
