@@ -17,7 +17,7 @@ import time
 import logging
 from dotenv import load_dotenv
 
-load_dotenv("/workspace/env")
+load_dotenv()
 
 __all__ = [
     "async_wrapper",
@@ -222,8 +222,8 @@ def cleanup(shutdown: bool = False, notify: bool = True, msg: str = "Cleanup exe
 
 
 def notify_email(msg: str):
-    email = "juriskjd@gmail.com"
-    target = "juliusjreinhold@outlook.com"
+    email = os.getenv("NOTIFY_EMAIL_FROM", "juriskjd@gmail.com")
+    target = os.getenv("NOTIFY_EMAIL_TO", "juliusjreinhold@outlook.com")
     app_pw = os.environ["GMAIL_APP_PW"]
 
     m = MIMEText(msg)
