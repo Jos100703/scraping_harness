@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from datetime import datetime
 from typing import Optional
 
@@ -104,3 +105,75 @@ class AsyncPipeline(Pipeline):
 
     def run(self, limit: int = 0):
         asyncio.run(self.run_async(limit))
+
+
+class ScraperPipeline:
+    """Abstract base for scraper pipelines that iterate over pre-computed
+    combinations, call an external API, and bulk-write results to MongoDB.
+
+    Subclass and override the seven abstract methods. run() provides the
+    outer batch loop with tqdm and bulk_write automatically.
+    """
+
+    movies_collection_name: str = "movies"
+    batch_size: int = 20
+    concurrency: int = 20
+    scraper_name: str = "unnamed_scraper"
+
+    def __init__(self, connection: MongoConnection = None):
+        self.conn = connection or MongoConnection()
+        self.movies_col = self.conn.get_collection(self.movies_collection_name)
+
+    # ── Override these ──────────────────────────────────────────────────────
+
+    def load_combinations(self):
+        """Return all combinations to iterate over (list or DataFrame)."""
+        raise NotImplementedError
+
+    def set_batch(self, batch):
+        """Push the batch slice into shared scraper state."""
+        raise NotImplementedError
+
+    def load_state(self):
+        """Restore pagination/cursor state for the current batch."""
+        raise NotImplementedError
+
+    def has_more(self) -> bool:
+        """True while there are remaining pages/items in the current batch."""
+        raise NotImplementedError
+
+    async def scrape(self) -> list:
+        """One async scrape iteration. Return raw results."""
+        raise NotImplementedError
+
+    def build_upserts(self, results: list) -> list:
+        """Convert raw scrape results into pymongo UpdateOne operations."""
+        raise NotImplementedError
+
+    def update_state(self, results: list):
+        """Persist cursor/state advancement after one iteration."""
+        raise NotImplementedError
+
+    def post_write(self, results: list):
+        """Optional hook for secondary collection writes after the primary bulk_write."""
+        pass
+
+    # ── Main loop ───────────────────────────────────────────────────────────
+
+    def run(self):
+        combinations = self.load_combinations()
+        n = len(combinations)
+        num_batches = math.ceil(n / self.batch_size)
+
+        for i in tqdm(range(0, n, self.batch_size),
+                      total=num_batches, desc=self.scraper_name):
+            self.set_batch(combinations[i : i + self.batch_size])
+            self.load_state()
+
+            while self.has_more():
+                results = asyncio.run(self.scrape())
+                ops = self.build_upserts(results)
+                if ops:
+                    self.movies_col.bulk_write(ops, ordered=False)
+                self.post_write(results)
+                self.update_state(results)

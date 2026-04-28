@@ -12,7 +12,7 @@ from .models import (
     Movie,
 )
 from .connection import MongoConnection
-from .pipeline import Pipeline, AsyncPipeline
+from .pipeline import Pipeline, AsyncPipeline, ScraperPipeline
 from .utils import (
     async_wrapper,
     safe_get,
@@ -45,6 +45,7 @@ __all__ = [
     # Pipeline
     "Pipeline",
     "AsyncPipeline",
+    "ScraperPipeline",
     # Utils
     "async_wrapper",
     "safe_get",
