@@ -58,10 +58,24 @@ class DownloadPipeline(ABC):
     # ── Optional hooks ─────────────────────────────────────────────────────
 
     def setup(self, args: argparse.Namespace) -> None:
-        """Called once before the main loop.  Override to init sessions, etc."""
+        """Called once before the main loop.  Override to init sessions, etc.
+
+        ``self.conn`` and ``self.coll`` are available when this is called.
+        """
 
     def teardown(self) -> None:
         """Called after the main loop.  Override to close sessions, etc."""
+
+    def resolve_steps(self, only: set[str] | None) -> set[str]:
+        """Steps to execute in ``process_chunk``.  Override to add deps.
+
+        *only* is the raw ``--only`` set (``None`` means all).  The default
+        implementation simply returns ``only or self.ALL_STEPS``.  Subclasses
+        can expand the set (e.g. adding transitive scraper dependencies)
+        while the base class still uses the raw *only* for status tracking
+        and ``build_update``.
+        """
+        return only or self.ALL_STEPS
 
     # ── Provided by base class ─────────────────────────────────────────────
 
@@ -131,10 +145,12 @@ class DownloadPipeline(ABC):
             if unknown:
                 parser.error(f"Unknown steps: {unknown}. Choose from {sorted(self.ALL_STEPS)}")
 
-        steps_to_run = only or self.ALL_STEPS
+        steps_to_run = self.resolve_steps(only)
 
-        conn = MongoConnection()
-        coll = conn.get_collection(self.COLLECTION)
+        self.conn = MongoConnection()
+        self.coll = self.conn.get_collection(self.COLLECTION)
+        conn = self.conn
+        coll = self.coll
 
         self.setup(args)
 
