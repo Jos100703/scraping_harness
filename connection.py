@@ -39,6 +39,12 @@ class MongoConnection:
         movies.create_index("source_entries.internal_id")
         movies.create_index([("_meta.status", 1)])
 
+        nfx = self.get_collection("nfx_survey")
+        nfx.create_index("imdb_id", unique=True, sparse=True)
+        nfx.create_index("parent_imdb_id", sparse=True)
+        nfx.create_index("source_entries.internal_id")
+        nfx.create_index([("_meta.status", 1)])
+
         uso = self.get_collection("unique_streaming_offers")
         uso.create_index([("service", 1), ("internal_id", 1)], unique=True)
         uso.create_index("imdb_id", sparse=True)

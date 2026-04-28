@@ -101,6 +101,7 @@ class Movie(BaseModel):
 
     # === Identifiers ===
     imdb_id: Optional[str] = None
+    parent_imdb_id: Optional[str] = None
     source_entries: list[SourceEntry] = Field(default_factory=list)
 
     # === Core Metadata ===
