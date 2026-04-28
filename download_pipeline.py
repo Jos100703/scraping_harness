@@ -144,12 +144,12 @@ class DownloadPipeline(ABC):
 
         # --rerun: pre-clear status keys so docs drop out after re-processing
         if args.rerun and not args.dry_run and not imdb_id_arg:
-            unset_keys = only or self.ALL_STEPS
-            unset_spec = {f"_meta.status.{self.PIPELINE_NAME}.{s}": "" for s in unset_keys}
-            if not only:
-                # Also remove the parent key so the re-query
-                # ({$exists: False}) matches after all sub-keys are gone
-                unset_spec[f"_meta.status.{self.PIPELINE_NAME}"] = ""
+            if only:
+                # Only unset specific step sub-keys
+                unset_spec = {f"_meta.status.{self.PIPELINE_NAME}.{s}": "" for s in only}
+            else:
+                # Unset the entire parent key (removes all sub-keys with it)
+                unset_spec = {f"_meta.status.{self.PIPELINE_NAME}": ""}
             coll.update_many(query, {"$unset": unset_spec})
             query = self.get_query(rerun=False, imdb_id=imdb_id_arg, only=only)
 
