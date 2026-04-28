@@ -7,6 +7,7 @@ domain-specific logic.
 """
 
 import argparse
+import json
 import logging
 import math
 from abc import ABC, abstractmethod
@@ -145,6 +146,10 @@ class DownloadPipeline(ABC):
         if args.rerun and not args.dry_run and not imdb_id_arg:
             unset_keys = only or self.ALL_STEPS
             unset_spec = {f"_meta.status.{self.PIPELINE_NAME}.{s}": "" for s in unset_keys}
+            if not only:
+                # Also remove the parent key so the re-query
+                # ({$exists: False}) matches after all sub-keys are gone
+                unset_spec[f"_meta.status.{self.PIPELINE_NAME}"] = ""
             coll.update_many(query, {"$unset": unset_spec})
             query = self.get_query(rerun=False, imdb_id=imdb_id_arg, only=only)
 
@@ -186,7 +191,7 @@ class DownloadPipeline(ABC):
                     for k, v in update.items():
                         preview = v
                         if isinstance(v, list):
-                            preview = f"<list len={len(v)}>"
+                            preview = json.dumps(v, default=str, indent=2)
                         elif isinstance(v, str) and len(v) > 120:
                             preview = v[:117] + "..."
                         print(f"  {k}: {preview}")
