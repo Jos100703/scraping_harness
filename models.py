@@ -107,6 +107,7 @@ class Movie(BaseModel):
     # === Core Metadata ===
     title: Optional[str] = None
     original_title: Optional[str] = None
+    content_type: Optional[str] = None           # "movie" or "tv_show"
     year: Optional[int] = None
     release_date: Optional[ReleaseDate] = None
     runtime_seconds: Optional[int] = None
